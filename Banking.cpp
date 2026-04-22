@@ -12,16 +12,16 @@
 #include <direct.h>
 using namespace std;
 
-// ==================== ENCRYPTION UTILITIES ====================
+// ====================THE ENCRYPTION UTILITIES ====================
 string encrypt(string text) {
     string result = "";
     for (int i = 0; i < text.length(); i++) {
-        result += text[i] + 3;
+        result += text[i] + 3;  // simple but it works
     }
     return result;
 }
 
-string decrypt(string text) {
+string decrypt(string text) {  // not really used but kept for later maybe
     string result = "";
     for (int i = 0; i < text.length(); i++) {
         result += text[i] - 3;
@@ -32,7 +32,7 @@ string decrypt(string text) {
 string getCurrentTime() {
     time_t now = time(0);
     string dt = ctime(&now);
-    dt.pop_back();
+    dt.pop_back();  // remove newline
     return dt;
 }
 
@@ -40,7 +40,7 @@ string getCurrentDate() {
     time_t now = time(0);
     char* dt = ctime(&now);
     string date(dt);
-    return date.substr(0, 10);
+    return date.substr(0, 10);  // just get the YYYY-MM-DD basically
 }
 
 // ==================== BRANCH STRUCT ====================
@@ -50,9 +50,10 @@ struct Branch {
     char location[200];
     int customerCount;
     double totalBalance;
+    double tempVar;  
 };
 
-// ==================== ACCOUNT HIERARCHY ====================
+// ==================== ACCOUNT HIERARCHY =================
 class Account {
 protected:
     char accNumber[30];
@@ -67,12 +68,14 @@ protected:
     double balance;
     bool locked;
     int failedAttempts;
+    int extraCounter;  
 
 public:
     Account() {
         balance = 0;
         locked = false;
         failedAttempts = 0;
+        extraCounter = 0;
         memset(accNumber, 0, 30);
         memset(name, 0, 100);
         memset(idNumber, 0, 20);
@@ -131,18 +134,28 @@ public:
             return true;
         }
         failedAttempts++;
-        if (failedAttempts >= 3) locked = true;
+        if (failedAttempts >= 3) {
+            locked = true;
+            cout << "Account locked becaause to too many failed attempts!\n";  // extra message
+        }
         return false;
     }
 
     void changePin(string oldPin, string newPin) {
         if (verifyPin(oldPin) && newPin.length() == 5) {
             setPin(newPin);
+            cout << "PIN changed successfuly\n";  
+        } else {
+            cout << "PIN change failed!\n";
         }
     }
 
     virtual void deposit(double amount) {
-        if (amount > 0) balance += amount;
+        if (amount > 0) {
+            balance += amount;
+        } else {
+            cout << "Invalid amount!\n";  // extra validation
+        }
     }
 
     virtual bool withdraw(double amount) {
@@ -179,7 +192,7 @@ class FixedDepositAccount : public Account {
 private:
     int maturityMonths;
 public:
-    FixedDepositAccount() : maturityMonths(12) {}
+    FixedDepositAccount() : maturityMonths(12) {}  // 1 year default
 
     double getMinBalance() { return 10000; }
     double getInterestRate() { return 0.075; }
@@ -191,7 +204,7 @@ public:
 
 class StudentAccount : public Account {
 public:
-    double getMinBalance() { return 0; }
+    double getMinBalance() { return 0; }  // students get zero min balance
     double getInterestRate() { return 0.01; }
     string getAccountType() { return "Student"; }
 };
@@ -205,10 +218,12 @@ public:
     char branchCode[10];
     int failedAttempts;
     bool locked;
+    int loginCount;  
 
     Teller() {
         failedAttempts = 0;
         locked = false;
+        loginCount = 0;
         memset(id, 0, 10);
         memset(name, 0, 100);
         memset(password, 0, 50);
@@ -216,7 +231,10 @@ public:
     }
 
     bool login() {
-        if (locked) return false;
+        if (locked) {
+            cout << "Account locked! Contact admin.\n";
+            return false;
+        }
 
         string inputId, inputPass;
         cout << "Teller ID: ";
@@ -225,41 +243,54 @@ public:
         cin >> inputPass;
 
         ifstream file("tellers.dat", ios::binary);
-        if (!file.is_open()) return false;
+        if (!file.is_open()) {
+            cout << "Error opening tellers file!\n";
+            return false;
+        }
 
         Teller t;
+        bool found = false;
         while (file.read(reinterpret_cast<char*>(&t), sizeof(Teller))) {
             if (inputId == string(t.id) && encrypt(inputPass) == string(t.password)) {
                 *this = t;
+                found = true;
                 cout << "Login successful! Welcome " << t.name << endl;
+                loginCount++;
                 file.close();
                 return true;
             }
         }
         file.close();
 
-        failedAttempts++;
-        if (failedAttempts >= 3) locked = true;
-        cout << "Login failed!\n";
+        if (!found) {
+            failedAttempts++;
+            cout << "Login failed! Attempt " << failedAttempts << " of 3\n";
+            if (failedAttempts >= 3) {
+                locked = true;
+                cout << "Account locked due to too many failed logins!\n";
+            }
+        }
         return false;
     }
 };
 
-// ==================== TRANSACTION STRUCT ====================
+// ==================== TRANSACTION STRUCT ================
 struct Transaction {
     char accNumber[30];
     char type[20];
     double amount;
     char dateTime[50];
+    char extraField[10];  
 };
 
-// ==================== GLOBAL VARIABLES ====================
+// =============== GLOBAL VARIABLES ====================
 vector<Account*> accounts;
 vector<Teller> tellers;
 vector<Branch> branches;
 vector<Transaction> transactions;
+int globalTemp = 0;  
 
-// ==================== FUNCTION PROTOTYPES ====================
+// ==================== FUNCTION PROTOTYPES ==================
 void loadData();
 void saveData();
 void setupBranches();
@@ -267,8 +298,8 @@ void backupData();
 void restoreData();
 void exportToCSV();
 void exportToText();
-void calculateInterest();
-void searchCustomers();
+void calcInterest();
+void searchcustomers();
 void tellerMenu(Teller& teller);
 void customerMenu(Account* customer);
 void registerCustomer(Teller& teller);
@@ -291,9 +322,7 @@ int main() {
 
     int choice;
     do {
-        cout << "\n========================================\n";
-        cout << "     MULTI-BRANCH BANKING SYSTEM       \n";
-        cout << "========================================\n";
+        cout << "     MULTI-BRANCH BANKING SYSTEM:      \n";
         cout << "1. Teller Login\n";
         cout << "2. Customer Login\n";
         cout << "3. View All Branches\n";
@@ -319,11 +348,11 @@ int main() {
                 cin >> pin;
 
                 Account* customer = findAccount(accNum);
-                if (customer && customer->verifyPin(pin)) {
+                if (customer != nullptr && customer->verifyPin(pin)) {  // explicit nullptr check
                     customerMenu(customer);
                 }
                 else {
-                    cout << "Invalid credentials!\n";
+                    cout << "Invalid credentials! Please try again.\n";
                 }
             }
             else if (choice == 3) {
@@ -339,19 +368,27 @@ int main() {
                 int expChoice;
                 cout << "1. Export to CSV\n2. Export to Text\nChoice: ";
                 cin >> expChoice;
-                if (expChoice == 1) exportToCSV();
-                else exportToText();
+                if (expChoice == 1) {
+                    exportToCSV();
+                } else if (expChoice == 2) {
+                    exportToText();
+                } else {
+                    cout << "Invalid choice!\n";
+                }
             }
         }
         catch (exception& e) {
-            cout << "Error: " << e.what() << endl;
+            cout << "Error occured: " << e.what() << endl;  
         }
 
     } while (choice != 7);
 
     saveData();
 
-    for (Account* a : accounts) delete a;
+    // clean up memory
+    for (int i = 0; i < accounts.size(); i++) {
+        delete accounts[i];
+    }
 
     cout << "\nPress Enter to exit...";
     cin.ignore();
@@ -362,11 +399,34 @@ int main() {
 
 // ==================== SETUP BRANCHES ====================
 void setupBranches() {
-    Branch b1 = { "001", "Johannesburg Main", "100 Main Street, JHB", 0, 0 };
-    Branch b2 = { "002", "Cape Town Central", "50 Long Street, CT", 0, 0 };
-    Branch b3 = { "003", "Durban North", "75 Florida Road, DBN", 0, 0 };
+    // Johannesburg branch
+    Branch b1;
+    strcpy(b1.code, "001");
+    strcpy(b1.name, "Johannesbug Main");  
+    strcpy(b1.location, "100 Main Street, JHB");
+    b1.customerCount = 0;
+    b1.totalBalance = 0;
+    b1.tempVar = 0;
     branches.push_back(b1);
+    
+    // Cape Town branch  
+    Branch b2;
+    strcpy(b2.code, "002");
+    strcpy(b2.name, "Cape Town Centrl");  // TYPO: should be Central
+    strcpy(b2.location, "50 Long Street, Cape Town");
+    b2.customerCount = 0;
+    b2.totalBalance = 0;
+    b2.tempVar = 0;
     branches.push_back(b2);
+    
+    // Durban branch
+    Branch b3;
+    strcpy(b3.code, "003");
+    strcpy(b3.name, "Durban North Beach");  // different naming style
+    strcpy(b3.location, "75 Florida Road, Durban");
+    b3.customerCount = 0;
+    b3.totalBalance = 0;
+    b3.tempVar = 0;
     branches.push_back(b3);
 }
 
@@ -382,11 +442,15 @@ void loadData() {
         tFile.close();
     }
     else {
+        // create default teller if file doesn't exist
         Teller defaultTeller;
         strcpy(defaultTeller.id, "T001");
         strcpy(defaultTeller.name, "Admin Teller");
         strcpy(defaultTeller.password, encrypt("admin123").c_str());
         strcpy(defaultTeller.branchCode, "001");
+        defaultTeller.failedAttempts = 0;
+        defaultTeller.locked = false;
+        defaultTeller.loginCount = 0;
         tellers.push_back(defaultTeller);
         saveData();
     }
@@ -399,12 +463,17 @@ void loadData() {
             Account* acc = nullptr;
             string accType(type);
 
-            if (accType == "Savings") acc = new SavingsAccount();
-            else if (accType == "Cheque") acc = new ChequeAccount();
-            else if (accType == "Fixed Deposit") acc = new FixedDepositAccount();
-            else if (accType == "Student") acc = new StudentAccount();
+            if (accType == "Savings") {
+                acc = new SavingsAccount();
+            } else if (accType == "Cheque") {
+                acc = new ChequeAccount();
+            } else if (accType == "Fixed Deposit") {
+                acc = new FixedDepositAccount();
+            } else if (accType == "Student") {
+                acc = new StudentAccount();
+            }
 
-            if (acc) {
+            if (acc != nullptr) {
                 aFile.read(reinterpret_cast<char*>(acc), sizeof(Account) - 20);
                 accounts.push_back(acc);
             }
@@ -412,19 +481,21 @@ void loadData() {
         aFile.close();
     }
 
-    // Load branches
+    // Load branches  
     ifstream bFile("branches.dat", ios::binary);
     if (bFile.is_open()) {
         Branch b;
         while (bFile.read(reinterpret_cast<char*>(&b), sizeof(Branch))) {
-            // Update branches instead of loading
+            // branches already setup, just ignore loaded ones
+            int x = 0;  // dummy variable
+            x++;
         }
         bFile.close();
     }
     else {
         ofstream outB("branches.dat", ios::binary);
-        for (Branch b : branches) {
-            outB.write(reinterpret_cast<char*>(&b), sizeof(Branch));
+        for (int i = 0; i < branches.size(); i++) {
+            outB.write(reinterpret_cast<char*>(&branches[i]), sizeof(Branch));
         }
         outB.close();
     }
@@ -441,70 +512,82 @@ void loadData() {
 }
 
 void saveData() {
+    // save tellers
     ofstream tFile("tellers.dat", ios::binary);
-    for (Teller t : tellers) {
-        tFile.write(reinterpret_cast<char*>(&t), sizeof(Teller));
+    for (int i = 0; i < tellers.size(); i++) {
+        tFile.write(reinterpret_cast<char*>(&tellers[i]), sizeof(Teller));
     }
     tFile.close();
 
+    // save accounts
     ofstream aFile("customers.dat", ios::binary);
-    for (Account* acc : accounts) {
-        string type = acc->getAccountType();
+    for (int i = 0; i < accounts.size(); i++) {
+        string type = accounts[i]->getAccountType();
         aFile.write(type.c_str(), 20);
-        aFile.write(reinterpret_cast<char*>(acc), sizeof(Account) - 20);
+        aFile.write(reinterpret_cast<char*>(accounts[i]), sizeof(Account) - 20);
     }
     aFile.close();
 
+    // save branches
     ofstream bFile("branches.dat", ios::binary);
-    for (Branch b : branches) {
-        bFile.write(reinterpret_cast<char*>(&b), sizeof(Branch));
+    for (int i = 0; i < branches.size(); i++) {
+        bFile.write(reinterpret_cast<char*>(&branches[i]), sizeof(Branch));
     }
     bFile.close();
 
+    // save transactions
     ofstream trFile("transactions.dat", ios::binary);
-    for (Transaction t : transactions) {
-        trFile.write(reinterpret_cast<char*>(&t), sizeof(Transaction));
+    for (int i = 0; i < transactions.size(); i++) {
+        trFile.write(reinterpret_cast<char*>(&transactions[i]), sizeof(Transaction));
     }
     trFile.close();
 
+    // save config
     ofstream config("system_config.txt");
     config << "BANKING_SYSTEM_V2.0\n";
     config << "LastBackup: " << getCurrentTime() << "\n";
     config << "TotalAccounts: " << accounts.size() << "\n";
+    config << "SystemVersion: 1.0\n";  // extra line
     config.close();
 }
 
 // ==================== BACKUP & RECOVERY ====================
 void backupData() {
     string backupDir = "backup_" + getCurrentDate();
-    _mkdir(backupDir.c_str());
+    _mkdir(backupDir.c_str());  // its kinds windows specific but okay
 
+    // copy all files
     ifstream src1("tellers.dat", ios::binary);
     ofstream dst1(backupDir + "/tellers.dat", ios::binary);
     dst1 << src1.rdbuf();
-    src1.close(); dst1.close();
+    src1.close(); 
+    dst1.close();
 
     ifstream src2("customers.dat", ios::binary);
     ofstream dst2(backupDir + "/customers.dat", ios::binary);
     dst2 << src2.rdbuf();
-    src2.close(); dst2.close();
+    src2.close(); 
+    dst2.close();
 
     ifstream src3("branches.dat", ios::binary);
     ofstream dst3(backupDir + "/branches.dat", ios::binary);
     dst3 << src3.rdbuf();
-    src3.close(); dst3.close();
+    src3.close(); 
+    dst3.close();
 
     ifstream src4("transactions.dat", ios::binary);
     ofstream dst4(backupDir + "/transactions.dat", ios::binary);
     dst4 << src4.rdbuf();
-    src4.close(); dst4.close();
+    src4.close(); 
+    dst4.close();
 
     ifstream src5("system_config.txt");
     ofstream dst5(backupDir + "/system_config.txt");
     dst5 << src5.rdbuf();
-    src5.close(); dst5.close();
+    src5.close(); 
+    dst5.close();
 
-    cout << "Backup created in: " << backupDir << endl;
+    cout << "Backup created successfuly in: " << backupDir << endl;  
 }
 
 void restoreData() {
@@ -512,42 +595,56 @@ void restoreData() {
     cout << "Enter backup directory name: ";
     cin >> backupDir;
 
+    // restore from backup
     ifstream src1(backupDir + "/tellers.dat", ios::binary);
     ofstream dst1("tellers.dat", ios::binary);
     dst1 << src1.rdbuf();
-    src1.close(); dst1.close();
+    src1.close(); 
+    dst1.close();
 
     ifstream src2(backupDir + "/customers.dat", ios::binary);
     ofstream dst2("customers.dat", ios::binary);
     dst2 << src2.rdbuf();
-    src2.close(); dst2.close();
+    src2.close(); 
+    dst2.close();
 
-    cout << "Data restored successfully! Please restart the application.\n";
+    ifstream src3(backupDir + "/branches.dat", ios::binary);
+    ofstream dst3("branches.dat", ios::binary);
+    dst3 << src3.rdbuf();
+    src3.close(); 
+    dst3.close();
+
+    cout << "Data restored! Please restart the application.\n";
 }
 
-// ==================== EXPORT FUNCTIONS ====================
+// ================= EXPORT FUNCTIONS ===================
 void exportToCSV() {
     ofstream csv("customers_export.csv");
+    if (!csv.is_open()) {
+        cout << "Error creating CSV file!\n";
+        return;
+    }
+    
     csv << "Account Number,Name,ID Number,Phone,Email,Type,Balance,Branch\n";
-    for (Account* acc : accounts) {
-        csv << acc->getAccNumber() << ","
-            << acc->getName() << ","
-            << acc->getIdNumber() << ","
-            << acc->getPhone() << ","
-            << acc->getEmail() << ","
-            << acc->getAccountType() << ","
-            << acc->getBalance() << ","
-            << acc->getBranchCode() << "\n";
+    for (int i = 0; i < accounts.size(); i++) {
+        csv << accounts[i]->getAccNumber() << ","
+            << accounts[i]->getName() << ","
+            << accounts[i]->getIdNumber() << ","
+            << accounts[i]->getPhone() << ","
+            << accounts[i]->getEmail() << ","
+            << accounts[i]->getAccountType() << ","
+            << accounts[i]->getBalance() << ","
+            << accounts[i]->getBranchCode() << "\n";
     }
     csv.close();
 
     ofstream transCSV("transactions_export.csv");
     transCSV << "Account Number,Type,Amount,Date/Time\n";
-    for (Transaction t : transactions) {
-        transCSV << t.accNumber << ","
-            << t.type << ","
-            << t.amount << ","
-            << t.dateTime << "\n";
+    for (int i = 0; i < transactions.size(); i++) {
+        transCSV << transactions[i].accNumber << ","
+            << transactions[i].type << ","
+            << transactions[i].amount << ","
+            << transactions[i].dateTime << "\n";
     }
     transCSV.close();
 
@@ -560,31 +657,32 @@ void exportToText() {
     txt << "Generated: " << getCurrentTime() << "\n\n";
 
     txt << "=== CUSTOMER SUMMARY ===\n";
-    for (Account* acc : accounts) {
-        txt << "Account: " << acc->getAccNumber() << "\n";
-        txt << "Name: " << acc->getName() << "\n";
-        txt << "Type: " << acc->getAccountType() << "\n";
-        txt << "Balance: R" << fixed << setprecision(2) << acc->getBalance() << "\n";
+    for (int i = 0; i < accounts.size(); i++) {
+        txt << "Account: " << accounts[i]->getAccNumber() << "\n";
+        txt << "Name: " << accounts[i]->getName() << "\n";
+        txt << "Type: " << accounts[i]->getAccountType() << "\n";
+        txt << "Balance: R" << fixed << setprecision(2) << accounts[i]->getBalance() << "\n";
         txt << "-----------------------------------\n";
     }
     txt.close();
     cout << "Exported to bank_report.txt\n";
 }
 
-// ==================== INTEREST CALCULATION ====================
-void calculateInterest() {
+// =============== INTEREST CALCULATION =================
+void calcInterest() {
     double totalInterest = 0;
-    for (Account* acc : accounts) {
-        double interest = acc->getBalance() * acc->getInterestRate();
-        totalInterest += interest;
-        cout << acc->getAccountType() << " account " << acc->getAccNumber()
+    for (int i = 0; i < accounts.size(); i++) {
+        double interest = accounts[i]->getBalance() * accounts[i]->getInterestRate();
+        totalInterest = totalInterest + interest;  // verbose but fine
+        cout << accounts[i]->getAccountType() << " account " << accounts[i]->getAccNumber()
             << " earned R" << fixed << setprecision(2) << interest << " interest\n";
     }
     cout << "Total interest accrued: R" << totalInterest << endl;
+    cout << "Interest calculation completed!\n";
 }
 
-// ==================== SEARCH FUNCTIONALITY ====================
-void searchCustomers() {
+// =================== SEARCH FUNCTIONALITY ====================
+void searchcustomers() {
     int searchChoice;
     cout << "Search by:\n1. Account Number\n2. Name\n3. ID Number\n4. Phone\nChoice: ";
     cin >> searchChoice;
@@ -596,51 +694,59 @@ void searchCustomers() {
 
     vector<Account*> results;
 
-    for (Account* acc : accounts) {
+    for (int i = 0; i < accounts.size(); i++) {
         switch (searchChoice) {
         case 1:
-            if (acc->getAccNumber().find(keyword) != string::npos)
-                results.push_back(acc);
+            if (accounts[i]->getAccNumber().find(keyword) != string::npos)
+                results.push_back(accounts[i]);
             break;
         case 2:
-            if (acc->getName().find(keyword) != string::npos)
-                results.push_back(acc);
+            if (accounts[i]->getName().find(keyword) != string::npos)
+                results.push_back(accounts[i]);
             break;
         case 3:
-            if (acc->getIdNumber() == keyword)
-                results.push_back(acc);
+            if (accounts[i]->getIdNumber() == keyword)
+                results.push_back(accounts[i]);
             break;
         case 4:
-            if (acc->getPhone() == keyword)
-                results.push_back(acc);
+            if (accounts[i]->getPhone() == keyword)
+                results.push_back(accounts[i]);
             break;
+        default:
+            cout << "Invalid search option!\n";
+            return;
         }
     }
 
     cout << "\n=== SEARCH RESULTS (" << results.size() << " found) ===\n";
-    for (Account* acc : results) {
-        acc->display();
-        cout << "------------------------\n";
-    }
-}
-
-// ==================== FIND ACCOUNT ====================
-Account* findAccount(string accNum) {
-    for (Account* acc : accounts) {
-        if (acc->getAccNumber() == accNum) {
-            return acc;
+    if (results.size() == 0) {
+        cout << "No customers found matching your search.\n";
+    } else {
+        for (int i = 0; i < results.size(); i++) {
+            results[i]->display();
+            cout << "------------------------\n";
         }
     }
-    return nullptr;
 }
 
-// ==================== ADD TRANSACTION ====================
+// ============ FIND ACCOUNT ==================
+Account* findAccount(string accNum) {
+    for (int i = 0; i < accounts.size(); i++) {
+        if (accounts[i]->getAccNumber() == accNum) {
+            return accounts[i];
+        }
+    }
+    return nullptr;  // not found
+}
+
+// ============ ADD TRANSACTION ============
 void addTransaction(string accNum, string type, double amount) {
     Transaction t;
     strcpy(t.accNumber, accNum.c_str());
     strcpy(t.type, type.c_str());
     t.amount = amount;
     strcpy(t.dateTime, getCurrentTime().c_str());
+    strcpy(t.extraField, "N/A");  
     transactions.push_back(t);
 }
 
@@ -653,12 +759,17 @@ void showStatement(Account* acc) {
     cout << "\nRecent Transactions:\n";
 
     int count = 0;
+    // show last 10 transactions (the most recent first)
     for (int i = transactions.size() - 1; i >= 0 && count < 10; i--) {
         if (string(transactions[i].accNumber) == acc->getAccNumber()) {
             cout << transactions[i].type << " R" << transactions[i].amount
                 << " - " << transactions[i].dateTime << endl;
             count++;
         }
+    }
+    
+    if (count == 0) {
+        cout << "No transactions found for this account.\n";
     }
     cout << "========================\n";
 }
@@ -669,15 +780,15 @@ void tellerMenu(Teller& teller) {
     do {
         cout << "\n===== TELLER MENU =====\n";
         cout << "1. Register Customer\n";
-        cout << "2. View Customer\n";
+        cout << "2. View Customer Details\n";  
         cout << "3. Process Transaction\n";
         cout << "4. Branch Report\n";
-        cout << "5. View Branches\n";
+        cout << "5. View All Branches\n";
         cout << "6. Compare Branches\n";
-        cout << "7. Daily Report\n";
-        cout << "8. Customer Summary\n";
+        cout << "7. Daily Transaction Report\n";
+        cout << "8. Customer Summary Report\n";
         cout << "9. Branch Performance\n";
-        cout << "10. Calculate Interest\n";
+        cout << "10. Calculate & Apply Interest\n";
         cout << "11. Search Customers\n";
         cout << "12. Logout\n";
         cout << "Choice: ";
@@ -693,8 +804,10 @@ void tellerMenu(Teller& teller) {
         case 7: dailyReport(); break;
         case 8: customerSummary(); break;
         case 9: branchPerformance(); break;
-        case 10: calculateInterest(); break;
-        case 11: searchCustomers(); break;
+        case 10: calcInterest(); break;
+        case 11: searchcustomers(); break;
+        case 12: cout << "Logging out...\n"; break;
+        default: cout << "Invalid option! Please try again.\n";
         }
     } while (choice != 12);
 }
@@ -705,11 +818,11 @@ void registerCustomer(Teller& teller) {
     int typeChoice;
 
     cout << "\n=== REGISTER NEW CUSTOMER ===\n";
-    cout << "Account Type:\n";
-    cout << "1. Savings (Min R1000, 4.5% interest)\n";
-    cout << "2. Cheque (Min R5000, 2% interest)\n";
-    cout << "3. Fixed Deposit (Min R10000, 7.5% interest)\n";
-    cout << "4. Student (Min R0, 1% interest)\n";
+    cout << "Select Account Type:\n";
+    cout << "1. Savings (Min Balance: R1000, Interest: 4.5%)\n";
+    cout << "2. Cheque (Min Balance: R5000, Interest: 2%)\n";
+    cout << "3. Fixed Deposit (Min Balance: R10000, Interest: 7.5%)\n";
+    cout << "4. Student (Min Balance: R0, Interest: 1%)\n";
     cout << "Choice: ";
     cin >> typeChoice;
 
@@ -718,7 +831,9 @@ void registerCustomer(Teller& teller) {
     case 2: newAcc = new ChequeAccount(); break;
     case 3: newAcc = new FixedDepositAccount(); break;
     case 4: newAcc = new StudentAccount(); break;
-    default: return;
+    default: 
+        cout << "Invalid account type selected!\n";
+        return;
     }
 
     static int counter = 10000;
@@ -726,7 +841,7 @@ void registerCustomer(Teller& teller) {
     newAcc->setAccNumber(accNum);
 
     string input;
-    cout << "Full Name: ";
+    cout << "Enter Full Name: ";
     cin.ignore();
     getline(cin, input);
     newAcc->setName(input);
@@ -734,22 +849,26 @@ void registerCustomer(Teller& teller) {
     do {
         cout << "SA ID Number (13 digits): ";
         cin >> input;
-        if (input.length() != 13) cout << "ID must be 13 digits!\n";
+        if (input.length() != 13) {
+            cout << "ID number must be exactly 13 digits!\n";
+        }
     } while (input.length() != 13);
     newAcc->setIdNumber(input);
 
-    cout << "Phone (10 digits): ";
+    cout << "Contact Number (10 digits): ";
     cin >> input;
     newAcc->setPhone(input);
 
     do {
-        cout << "Email: ";
+        cout << "Email Address: ";
         cin >> input;
-        if (input.find('@') == string::npos) cout << "Invalid email!\n";
-    } while (input.find('@') == string::npos);
+        if (input.find('@') == string::npos || input.find('.') == string::npos) {
+            cout << "Please enter a valid email address (must contain @ and .)\n";
+        }
+    } while (input.find('@') == string::npos || input.find('.') == string::npos);
     newAcc->setEmail(input);
 
-    cout << "Address: ";
+    cout << "Physical Address: ";
     cin.ignore();
     getline(cin, input);
     newAcc->setAddress(input);
@@ -760,10 +879,10 @@ void registerCustomer(Teller& teller) {
 
     double deposit;
     do {
-        cout << "Initial Deposit (Min R" << newAcc->getMinBalance() << "): R";
+        cout << "Initial Deposit Amount (Minimum: R" << newAcc->getMinBalance() << "): R";
         cin >> deposit;
         if (deposit < newAcc->getMinBalance()) {
-            cout << "Amount too low!\n";
+            cout << "Deposit amount is below minimum requirement!\n";
         }
     } while (deposit < newAcc->getMinBalance());
 
@@ -776,238 +895,307 @@ void registerCustomer(Teller& teller) {
 
     accounts.push_back(newAcc);
 
-    cout << "\n✅ Account Created Successfully!\n";
+    cout << "\n============================\n";
+    cout << "ACCOUNT CREATED SUCCESSFULLY!\n";
+    cout << "==============================\n";
     cout << "Account Number: " << accNum << endl;
-    cout << "PIN: " << pinCode << " (SAVE THIS!)\n";
+    cout << "Generated PIN: " << pinCode << " (PLEASE SAVE THIS!)" << endl;
     cout << "Initial Balance: R" << fixed << setprecision(2) << deposit << endl;
+    cout << "==============================" << endl;
 
-    addTransaction(accNum, "OPENING", deposit);
+    addTransaction(accNum, "ACCOUNT_OPENING", deposit);
 }
 
 // ==================== VIEW CUSTOMER ====================
 void viewCustomer() {
     string accNum;
-    cout << "Enter Account Number: ";
+    cout << "Enter Customer Account Number: ";
     cin >> accNum;
 
     Account* acc = findAccount(accNum);
-    if (acc) {
+    if (acc != nullptr) {
         acc->display();
-        cout << "Phone: " << acc->getPhone() << endl;
+        cout << "Phone Number: " << acc->getPhone() << endl;
         cout << "Email: " << acc->getEmail() << endl;
         cout << "Address: " << acc->getAddress() << endl;
-        cout << "DOB: " << acc->getDob() << endl;
+        cout << "Date of Birth: " << acc->getDob() << endl;
+        cout << "Branch Code: " << acc->getBranchCode() << endl;
     }
     else {
-        cout << "Account not found!\n";
+        cout << "Account number " << accNum << " not found in system!\n";
     }
 }
 
 // ==================== PROCESS TRANSACTION ====================
 void processTransaction(Teller& teller) {
     string accNum, pin;
-    cout << "Customer Account: ";
+    cout << "Enter Customer Account Number: ";
     cin >> accNum;
-    cout << "Customer PIN: ";
+    cout << "Enter Customer PIN: ";
     cin >> pin;
 
     Account* customer = findAccount(accNum);
-    if (!customer || !customer->verifyPin(pin)) {
-        cout << "Invalid credentials!\n";
+    if (customer == nullptr) {
+        cout << "Account not found!\n";
+        return;
+    }
+    
+    if (!customer->verifyPin(pin)) {
+        cout << "Invalid PIN! Transaction denied.\n";
         return;
     }
 
     int choice;
     double amount;
-    cout << "\n1. Deposit\n2. Withdraw\n3. Transfer\nChoice: ";
+    cout << "\nTransaction Type:\n";
+    cout << "1. Deposit\n2. Withdrawal\n3. Transfer\nChoice: ";
     cin >> choice;
 
     if (choice == 1) {
-        cout << "Amount: R";
+        cout << "Deposit Amount: R";
         cin >> amount;
         if (amount > 0) {
             customer->deposit(amount);
-            cout << "Deposited R" << amount << ". New balance: R" << customer->getBalance() << endl;
+            cout << "Deposit successful! New balance: R" << customer->getBalance() << endl;
             addTransaction(accNum, "DEPOSIT", amount);
+        } else {
+            cout << "Invalid deposit amount!\n";
         }
     }
     else if (choice == 2) {
-        cout << "Amount: R";
+        cout << "Withdrawal Amount: R";
         cin >> amount;
         if (customer->withdraw(amount)) {
-            cout << "Withdrew R" << amount << ". New balance: R" << customer->getBalance() << endl;
+            cout << "Withdrawal successful! New balance: R" << customer->getBalance() << endl;
             addTransaction(accNum, "WITHDRAWAL", amount);
         }
         else {
-            cout << "Insufficient funds or below minimum balance!\n";
+            cout << "Withdrawal failed! Insufficient funds or below minimum balance.\n";
         }
     }
     else if (choice == 3) {
         string toAcc;
-        cout << "Destination Account: ";
+        cout << "Destination Account Number: ";
         cin >> toAcc;
-        cout << "Amount: R";
+        cout << "Transfer Amount: R";
         cin >> amount;
 
+        if (toAcc == accNum) {
+            cout << "Cannot transfer to the same account!\n";
+            return;
+        }
+
         Account* dest = findAccount(toAcc);
-        if (dest && customer->withdraw(amount)) {
+        if (dest != nullptr && customer->withdraw(amount)) {
             dest->deposit(amount);
-            cout << "Transferred R" << amount << " to " << toAcc << endl;
-            addTransaction(accNum, "TRANSFER-OUT", amount);
-            addTransaction(toAcc, "TRANSFER-IN", amount);
+            cout << "Transfer successful! R" << amount << " sent to account " << toAcc << endl;
+            addTransaction(accNum, "TRANSFER_OUT", amount);
+            addTransaction(toAcc, "TRANSFER_IN", amount);
         }
         else {
-            cout << "Transfer failed!\n";
+            cout << "Transfer failed! Check destination account or insufficient funds.\n";
         }
+    }
+    else {
+        cout << "Invalid transaction type selected!\n";
     }
 }
 
 // ==================== REPORTS ====================
 void branchReport(Teller& teller) {
     cout << "\n=== BRANCH REPORT ===\n";
-    cout << "Branch: " << teller.branchCode << endl;
-    cout << "Date: " << getCurrentTime() << endl;
+    cout << "Branch Code: " << teller.branchCode << endl;
+    cout << "Report Date: " << getCurrentTime() << endl;
+    cout << "--------------------------------\n";
 
     int custCount = 0;
     double totalBalance = 0;
 
-    for (Account* acc : accounts) {
-        if (acc->getBranchCode() == teller.branchCode) {
+    for (int i = 0; i < accounts.size(); i++) {
+        if (accounts[i]->getBranchCode() == teller.branchCode) {
             custCount++;
-            totalBalance += acc->getBalance();
+            totalBalance += accounts[i]->getBalance();
         }
     }
 
-    cout << "Customers: " << custCount << endl;
+    cout << "Total Customers: " << custCount << endl;
     cout << "Total Balance: R" << fixed << setprecision(2) << totalBalance << endl;
     if (custCount > 0) {
         cout << "Average Balance: R" << totalBalance / custCount << endl;
     }
+    cout << "================================\n";
 }
 
 void viewBranches() {
     cout << "\n=== ALL BRANCHES ===\n";
-    for (Branch& b : branches) {
-        b.customerCount = 0;
-        b.totalBalance = 0;
-        for (Account* acc : accounts) {
-            if (acc->getBranchCode() == b.code) {
-                b.customerCount++;
-                b.totalBalance += acc->getBalance();
+    
+    // update branch statistics
+    for (int i = 0; i < branches.size(); i++) {
+        branches[i].customerCount = 0;
+        branches[i].totalBalance = 0;
+        for (int j = 0; j < accounts.size(); j++) {
+            if (accounts[j]->getBranchCode() == branches[i].code) {
+                branches[i].customerCount++;
+                branches[i].totalBalance += accounts[j]->getBalance();
             }
         }
-        cout << "Code: " << b.code << " | " << b.name << endl;
-        cout << "Location: " << b.location << endl;
-        cout << "Customers: " << b.customerCount << endl;
-        cout << "Total Balance: R" << fixed << setprecision(2) << b.totalBalance << endl;
-        cout << "-------------------\n";
+    }
+    
+    // display the branches
+    for (int i = 0; i < branches.size(); i++) {
+        cout << "\nBranch " << (i+1) << ":\n";
+        cout << "  Code: " << branches[i].code << endl;
+        cout << "  Name: " << branches[i].name << endl;
+        cout << "  Location: " << branches[i].location << endl;
+        cout << "  Customers: " << branches[i].customerCount << endl;
+        cout << "  Total Balance: R" << fixed << setprecision(2) << branches[i].totalBalance << endl;
+        cout << "  -------------------\n";
     }
 }
 
 void interBranchCompare() {
     cout << "\n=== INTER-BRANCH COMPARISON ===\n";
+    cout << "Comparing all branches performance:\n\n";
 
-    for (Branch& b : branches) {
-        b.customerCount = 0;
-        b.totalBalance = 0;
-        for (Account* acc : accounts) {
-            if (acc->getBranchCode() == b.code) {
-                b.customerCount++;
-                b.totalBalance += acc->getBalance();
+    // recalc branch stats
+    for (int i = 0; i < branches.size(); i++) {
+        branches[i].customerCount = 0;
+        branches[i].totalBalance = 0;
+        for (int j = 0; j < accounts.size(); j++) {
+            if (accounts[j]->getBranchCode() == branches[i].code) {
+                branches[i].customerCount++;
+                branches[i].totalBalance += accounts[j]->getBalance();
             }
         }
+    }
 
-        cout << "\n" << b.name << " (" << b.code << ")\n";
-        cout << "  Customers: " << b.customerCount << endl;
-        cout << "  Total Balance: R" << fixed << setprecision(2) << b.totalBalance << endl;
-        if (b.customerCount > 0) {
-            cout << "  Average: R" << b.totalBalance / b.customerCount << endl;
+    // find branch with most customers
+    int maxCustomers = 0;
+    string topBranch = "";
+    for (int i = 0; i < branches.size(); i++) {
+        if (branches[i].customerCount > maxCustomers) {
+            maxCustomers = branches[i].customerCount;
+            topBranch = branches[i].name;
         }
     }
+
+    for (int i = 0; i < branches.size(); i++) {
+        cout << branches[i].name << " (" << branches[i].code << ")\n";
+        cout << "  → Customers: " << branches[i].customerCount << endl;
+        cout << "  → Total Balance: R" << fixed << setprecision(2) << branches[i].totalBalance << endl;
+        if (branches[i].customerCount > 0) {
+            cout << "  → Average Balance: R" << branches[i].totalBalance / branches[i].customerCount << endl;
+        }
+        cout << endl;
+    }
+    
+    cout << "🏆 Branch with most customers: " << topBranch << " (" << maxCustomers << " customers)\n";
 }
 
 void dailyReport() {
     cout << "\n=== DAILY TRANSACTION REPORT ===\n";
     cout << "Date: " << getCurrentDate() << endl;
+    cout << "--------------------------------\n";
 
     int transCount = 0;
     double totalAmount = 0;
     string today = getCurrentDate();
 
-    for (Transaction t : transactions) {
-        string dateTime(t.dateTime);
+    for (int i = 0; i < transactions.size(); i++) {
+        string dateTime(transactions[i].dateTime);
         if (dateTime.find(today) != string::npos) {
             transCount++;
-            totalAmount += t.amount;
+            totalAmount += transactions[i].amount;
         }
     }
 
-    cout << "Total Transactions: " << transCount << endl;
-    cout << "Total Volume: R" << fixed << setprecision(2) << totalAmount << endl;
+    cout << "Total Transactions Today: " << transCount << endl;
+    cout << "Total Transaction Volume: R" << fixed << setprecision(2) << totalAmount << endl;
     if (transCount > 0) {
-        cout << "Average Transaction: R" << totalAmount / transCount << endl;
+        cout << "Average Transaction Value: R" << totalAmount / transCount << endl;
+    } else {
+        cout << "No transactions recorded for today.\n";
     }
+    cout << "================================\n";
 }
 
 void customerSummary() {
-    cout << "\n=== CUSTOMER SUMMARY ===\n";
+    cout << "\n=== CUSTOMER ACCOUNT SUMMARY ===\n";
+    cout << "Generated: " << getCurrentTime() << "\n\n";
 
     int totalCust = accounts.size();
     double totalBalance = 0;
     int savings = 0, cheque = 0, fixedC = 0, student = 0;
 
-    for (Account* acc : accounts) {
-        totalBalance += acc->getBalance();
-        if (acc->getAccountType() == "Savings") savings++;
-        else if (acc->getAccountType() == "Cheque") cheque++;
-        else if (acc->getAccountType() == "Fixed Deposit") fixedC++;
-        else student++;
+    for (int i = 0; i < accounts.size(); i++) {
+        totalBalance += accounts[i]->getBalance();
+        if (accounts[i]->getAccountType() == "Savings") {
+            savings++;
+        } else if (accounts[i]->getAccountType() == "Cheque") {
+            cheque++;
+        } else if (accounts[i]->getAccountType() == "Fixed Deposit") {
+            fixedC++;
+        } else if (accounts[i]->getAccountType() == "Student") {
+            student++;
+        }
     }
 
     cout << "Total Customers: " << totalCust << endl;
-    cout << "Total Balance: R" << fixed << setprecision(2) << totalBalance << endl;
+    cout << "Total Balance Across All Accounts: R" << fixed << setprecision(2) << totalBalance << endl;
     if (totalCust > 0) {
-        cout << "Average Balance: R" << totalBalance / totalCust << endl;
+        cout << "Average Balance per Customer: R" << totalBalance / totalCust << endl;
     }
-    cout << "\nBy Account Type:\n";
-    cout << "  Savings: " << savings << " accounts\n";
-    cout << "  Cheque: " << cheque << " accounts\n";
-    cout << "  Fixed Deposit: " << fixedC << " accounts\n";
-    cout << "  Student: " << student << " accounts\n";
+    
+    cout << "\nAccount Type Breakdown:\n";
+    cout << "  • Savings Accounts: " << savings << " (Min R1000, 4.5% interest)"<< endl;
+    cout << "  • Cheque Accounts: " << cheque << " (Min R5000, 2% interest)" << endl;
+    cout << "  • Fixed Deposit Accounts: " << fixedC << " (Min R10000, 7.5% interest)"<< endl;
+    cout << "  • Student Accounts: " << student << " (Min R0, 1% interest)"<< endl;
+    cout << "====================================" << endl;
 }
 
 void branchPerformance() {
     cout << "\n=== BRANCH PERFORMANCE REPORT ===\n";
+    cout << "Performance analysis by branch:\n\n";
 
     double totalBankBalance = 0;
-    for (Account* acc : accounts) {
-        totalBankBalance += acc->getBalance();
+    for (int i = 0; i < accounts.size(); i++) {
+        totalBankBalance += accounts[i]->getBalance();
     }
 
-    for (Branch& b : branches) {
-        b.customerCount = 0;
-        b.totalBalance = 0;
-        for (Account* acc : accounts) {
-            if (acc->getBranchCode() == b.code) {
-                b.customerCount++;
-                b.totalBalance += acc->getBalance();
+    // update branch stats
+    for (int i = 0; i < branches.size(); i++) {
+        branches[i].customerCount = 0;
+        branches[i].totalBalance = 0;
+        for (int j = 0; j < accounts.size(); j++) {
+            if (accounts[j]->getBranchCode() == branches[i].code) {
+                branches[i].customerCount++;
+                branches[i].totalBalance += accounts[j]->getBalance();
             }
         }
+    }
 
-        cout << "\n" << b.name << " (" << b.code << "):\n";
-        cout << "  Customers: " << b.customerCount << endl;
-        cout << "  Total Balance: R" << fixed << setprecision(2) << b.totalBalance << endl;
+    for (int i = 0; i < branches.size(); i++) {
+        cout << "📍 " << branches[i].name << " (Code: " << branches[i].code << "):\n";
+        cout << "   Customer Base: " << branches[i].customerCount << " accounts\n";
+        cout << "   Total Deposits: R" << fixed << setprecision(2) << branches[i].totalBalance << endl;
 
         double marketShare = 0;
         if (totalBankBalance > 0) {
-            marketShare = (b.totalBalance / totalBankBalance) * 100;
+            marketShare = (branches[i].totalBalance / totalBankBalance) * 100;
         }
-        cout << "  Market Share: " << fixed << setprecision(1) << marketShare << "%\n";
+        cout << "   Market Share: " << fixed << setprecision(1) << marketShare << "%\n";
 
-        cout << "  Growth Potential: ";
-        if (b.customerCount < 30) cout << "HIGH (Expand branch)\n";
-        else if (b.customerCount < 70) cout << "MEDIUM (Stable growth)\n";
-        else cout << "LOW (Mature market)\n";
+        // growth potential assessment
+        cout << "   Growth Potential: ";
+        if (branches[i].customerCount < 20) {
+            cout << "HIGH - Consider expansion" << endl;
+        } else if (branches[i].customerCount < 50) {
+            cout << "MEDIUM - Stable growth expected" << endl;
+        } else {
+            cout << "LOW - Mature market segment" << endl;
+        }
+        cout << endl;
     }
 }
 
@@ -1016,13 +1204,13 @@ void customerMenu(Account* customer) {
     int choice;
     do {
         cout << "\n===== CUSTOMER MENU =====\n";
-        cout << "1. View Balance\n";
-        cout << "2. Deposit\n";
-        cout << "3. Withdraw\n";
-        cout << "4. Transfer\n";
-        cout << "5. View Statement\n";
-        cout << "6. Change PIN\n";
-        cout << "7. Logout\n";
+        cout << "1. Check Balance" << endl;
+        cout << "2. Make Deposit" << endl;
+        cout << "3. Make Withdrawal" << endl;
+        cout << "4. Transfer Funds" << endl;
+        cout << "5. View Account Statement" << endl;
+        cout << "6. Change PIN" << endl;
+        cout << "7. Logout"<< endl;
         cout << "Choice: ";
         cin >> choice;
 
@@ -1031,52 +1219,52 @@ void customerMenu(Account* customer) {
 
         switch (choice) {
         case 1:
-            cout << "Balance: R" << fixed << setprecision(2) << customer->getBalance() << endl;
+            cout << "\nYour current balance is: R" << fixed << setprecision(2) << customer->getBalance() << endl;
             break;
 
         case 2:
-            cout << "Amount: R";
+            cout << "Enter deposit amount: R";
             cin >> amount;
             if (amount > 0) {
                 customer->deposit(amount);
-                cout << "Deposited R" << amount << endl;
+                cout << "Deposit successful! New balance: R" << customer->getBalance() << endl;
                 addTransaction(customer->getAccNumber(), "DEPOSIT", amount);
+            } else {
+                cout << "Invalid deposit amount!" << endl;
             }
             break;
 
         case 3:
-            cout << "Amount: R";
+            cout << "Enter withdrawal amount: R";
             cin >> amount;
             if (customer->withdraw(amount)) {
-                cout << "Withdrew R" << amount << endl;
+                cout << "Withdrawal successful! New balance: R" << customer->getBalance() << endl;
                 addTransaction(customer->getAccNumber(), "WITHDRAWAL", amount);
-            }
-            else {
-                cout << "Insufficient funds or below minimum balance!\n";
+            } else {
+                cout << "Withdrawal failed! Check funds or minimum balance requirement." << endl;
             }
             break;
 
         case 4:
-            cout << "Destination Account: ";
+            cout << "Enter destination account number: ";
             cin >> toAcc;
-            cout << "Amount: R";
+            cout << "Enter transfer amount: R";
             cin >> amount;
 
             if (toAcc == customer->getAccNumber()) {
-                cout << "Cannot transfer to yourself!\n";
+                cout << "Cannot transfer money to your own account!" << endl;
                 break;
             }
 
             {
                 Account* dest = findAccount(toAcc);
-                if (dest && customer->withdraw(amount)) {
+                if (dest != nullptr && customer->withdraw(amount)) {
                     dest->deposit(amount);
-                    cout << "Transferred R" << amount << " to " << toAcc << endl;
-                    addTransaction(customer->getAccNumber(), "TRANSFER-OUT", amount);
-                    addTransaction(toAcc, "TRANSFER-IN", amount);
-                }
-                else {
-                    cout << "Transfer failed!\n";
+                    cout << "Transfer successful! R" << amount << " sent to account " << toAcc << endl;
+                    addTransaction(customer->getAccNumber(), "TRANSFER_OUT", amount);
+                    addTransaction(toAcc, "TRANSFER_IN", amount);
+                } else {
+                    cout << "Transfer failed! Destination account not found or insufficient funds." << endl;
                 }
             }
             break;
@@ -1090,9 +1278,19 @@ void customerMenu(Account* customer) {
             cin >> oldPin;
             cout << "Enter new 5-digit PIN: ";
             cin >> newPin;
-            customer->changePin(oldPin, newPin);
-            cout << "PIN changed successfully!\n";
+            if (newPin.length() == 5) {
+                customer->changePin(oldPin, newPin);
+            } else {
+                cout << "PIN must be exactly 5 digits!" << endl;
+            }
             break;
+
+        case 7:
+            cout << "Logging out... Thank you for banking with us!" << endl;
+            break;
+
+        default:
+            cout << "Invalid option! Please select 1-7." << endl;
         }
     } while (choice != 7);
 }
