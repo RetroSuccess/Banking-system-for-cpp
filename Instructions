@@ -1,0 +1,55 @@
+Multi branch banking management system
+
+Compilation instructions
+- Compiler: Any C++11 compatible compiler (Visual Studio, g++, MinGW)
+- Command: g++ main.cpp -o banking.exe
+- Note: Works on Windows (uses _mkdir function)
+
+The default teller login
+- Teller ID: T001
+- Password: admin123
+- Branch: Johannesburg Main (Code: 001)
+
+How to use it
+
+Creating the customer accounts (Teller only):
+1. Login with teller credentials
+2. Select "Register Customer" from teller menu
+3. Choose account type (Savings/Cheque/Fixed Deposit/Student)
+4. Enter customer details (ID, name, contact, email, address, DOB)
+5. Enter initial deposit (minimum depends on account type)
+6. System generates Account Number (ACC-001-XXXXX) and 5-digit PIN
+7. **WRITE DOWN THE PIN** - displayed only once!
+
+Customer login:
+1. Select "Customer Login" from main menu
+2. Enter Account Number (ACC-001-10000)
+3. Enter 5-digit PIN (from the registration)
+4. After 3 failed attempts, account locks temporarily
+
+What you can do:
+- Check balance
+- Deposit money
+- Withdraw money (respects minimum balance)
+- Transfer funds between accounts
+- View transaction statement (last 10 transactions)
+- Change PIN
+
+Reports available (Teller menu)
+- Daily Transaction Report
+- Customer Account Summary  
+- Branch Performance Report
+- Inter-Branch Comparison
+
+The File storage
+All data saved to binary files:
+- customers.dat - Account details (encrypted PINs)
+- transactions.dat - Transaction history
+- branches.dat - Branch information
+- tellers.dat - Teller credentials
+- system_config.txt - System settings
+
+Backup and export
+- Option 4: Backup all data
+- Option 5: Restore from backup
+- Option 6: Export to CSV or text files
